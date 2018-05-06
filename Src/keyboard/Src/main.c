@@ -27,19 +27,21 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
-/* Private typedef -----------------------------------------------------------*/
-/* Private define ------------------------------------------------------------*/
-#define CURSOR_STEP     5
+#include <string.h>
 
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 USBD_HandleTypeDef USBD_Device;
 uint8_t HID_Buffer[8];
+uint8_t shift_pressed;
+uint8_t key_pressed;
+char *message = "Happy birthday to you, you live in a zoo, you look like a monkey, and you smell like one too!";
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void GetPointerData(uint8_t *pbuf);
+void WriteMessage();
+void ClearKeys();
+void PressButtons(uint8_t shift, uint8_t key);
 
 /* Private functions ---------------------------------------------------------*/
 
@@ -75,41 +77,94 @@ int main(void)
   
   while (1)
   {
-    HAL_Delay(100);
+    HAL_Delay(50);
     
     /* Toggle LEDs  */
     BSP_LED_Toggle(LED1);
     BSP_LED_Toggle(LED2);
     BSP_LED_Toggle(LED3);
-    HAL_Delay(100);  
-    GetPointerData(HID_Buffer);
-    USBD_HID_SendReport(&USBD_Device, HID_Buffer, 8);
+    HAL_Delay(100);
+    WriteMessage();
+    HAL_Delay(100);
   }
 }
 
-/**
-  * @brief  Gets Pointer Data.
-  * @param  pbuf: Pointer to report
-  * @retval None
-  */
-static void GetPointerData(uint8_t *pbuf)
+void WriteMessage() {
+  uint8_t key;
+  for(int i = 0; i < strlen(message); i++) {
+	ClearKeys();
+	HAL_Delay(50);
+	key = (uint8_t) message[i];
+	PressButtons(0, key);
+	USBD_HID_SendReport(&USBD_Device, HID_Buffer, 8);
+	HAL_Delay(50);
+  }
+}
+
+void ClearKeys()
 {
-  static int8_t cnt = 0;
-  int8_t  x = 0, y = 0 ;
-  
-  if(cnt++ > 0)
-  {
-    x = CURSOR_STEP;
+  for(int i = 0; i < 8; i++) {
+	 if (i == 1) {
+	    continue;
+	 }
+     HID_Buffer[i] = 0;
   }
-  else
-  {
-    x = -CURSOR_STEP;
+  USBD_HID_SendReport(&USBD_Device, HID_Buffer, 8);
+}
+
+void PressButtons(uint8_t shift, uint8_t key)
+{
+
+  if (shift) {
+    HID_Buffer[0] = 2;
   }
-  /*pbuf[0] = 0;
-  pbuf[1] = x;
-  pbuf[2] = y;
-  pbuf[3] = 0;*/
-  pbuf[2] = 6;
+  else {
+	HID_Buffer[0] = 0;
+  }
+
+  switch(key) {
+
+  	  // space
+	  case 32:
+		HID_Buffer[2] = 0x2c;
+		break;
+
+  	  // exclamation mark
+  	  case 33:
+  		HID_Buffer[0] = 2;
+  		HID_Buffer[2] = 0x1e;
+        break;
+
+      // apostrophe
+  	  case 39:
+		HID_Buffer[2] = 0x34;
+		break;
+
+      // comma
+  	  case 44:
+		HID_Buffer[2] = 0x36;
+		break;
+
+      // period
+  	  case 46:
+  		HID_Buffer[2] = 0x37;
+        break;
+
+      // question mark
+  	  case 63:
+    	HID_Buffer[0] = 2;
+  		HID_Buffer[2] = 0x38;
+        break;
+
+     default :
+    	 if (key <= 90) {
+    		 HID_Buffer[0] = 2;
+    		 HID_Buffer[2] = key - 61;
+    	 }
+    	 else {
+    		 HID_Buffer[2] = key - 93;
+    	 }
+  }
 }
 
 
